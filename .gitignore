@@ -1,0 +1,33 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Environment variables
+.env
+
+# macOS system files
+.DS_Store
+
+# Virtual environments
+venv/
+.env/
+
+# Logs and debug files
+*.log
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# IDE configurations
+.idea/
+.vscode/
+
+# Compiled C extensions
+*.so
+
+# Test output
+coverage/
+htmlcov/
+.tox/
+.nox/
+pytest_cache/
