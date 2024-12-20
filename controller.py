@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel
 from typing import Dict
 from langchain_core.messages import HumanMessage

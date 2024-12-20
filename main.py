@@ -4,26 +4,10 @@ from typing import Dict
 import uvicorn
 from langchain_core.messages import HumanMessage
 from workflow.main_workflow import wf, GlobalState
-
 from controller import Controller
-
+import json
 
 app = FastAPI()
-
-
-class HumanInput(BaseModel):
-    user_id: int
-    user_history : list[Product]
-    messages: str
-    thread_id: int
-
-
-@app.post("/process_input/")
-async def process_input(input_data: HumanInput):
-    response = Controller.chatbot_handler(input_data)
-    return response
-
-
 
 # Define a Product class with Pydantic
 class Product(BaseModel):
@@ -54,7 +38,7 @@ class Product(BaseModel):
         return products
  
     @classmethod
-    def create_json(cls, data: List['Product']):
+    def create_json(cls, data: list['Product']):
         try:
             # Write the list of Product instances to the file
             with open('products.json', 'w') as file:
@@ -68,8 +52,22 @@ class Product(BaseModel):
         pass
 
 
+
+class HumanInput(BaseModel):
+    user_id: int
+    user_history : list[Product]
+    messages: str
+    thread_id: int
+
+
+@app.post("/process_input/")
+async def process_input(input_data: HumanInput):
+    response = Controller.chatbot_handler(input_data)
+    return response
+
+
 @app.post("/create-json/")
-async def create_json(data: List[Product]):
+async def create_json(data: list[Product]):
     return Product.create_json(data)
 
 
