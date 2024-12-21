@@ -10,7 +10,7 @@ state_storage = {}
 
 class HumanInput(BaseModel):
     user_id: int
-    user_history : dict = None
+    user_history : list 
     messages: str
     thread_id: int
 
@@ -18,34 +18,38 @@ class Controller:
     @staticmethod
     async def chatbot_handler(input_data: HumanInput):
         # Retrieve or create a new state based on the thread ID
-        thread_id = input_data.thread_id
-        if thread_id not in state_storage:
-            state_storage[thread_id] = GlobalState(messages = [])  # Assuming GlobalState initializes the message list
+        try :
+            thread_id = input_data.thread_id
+            if thread_id not in state_storage:
+                state_storage[thread_id] = GlobalState(messages = [])  # Assuming GlobalState initializes the message list
 
-        state = GlobalState(messages = [])
-        
-        # Integrate the user message into the state
-        
-        state['messages'] += [HumanMessage(content = input_data.messages)]
+            state = GlobalState(messages = [])
+            
+            # Integrate the user message into the state
+            
+            state['messages'] += [HumanMessage(content = input_data.messages)]
 
-        if not input_data.user_history:
-            state['user_history'] = input_data.user_history
-        
-        # Initialize configuration
-        state['config'] = {'configurable': {'thread_id': thread_id}}
+            if input_data.user_history:
+                state['user_history'] = input_data.user_history
+            
+            # Initialize configuration
+            state['config'] = {'configurable': {'thread_id': thread_id}}
 
-        # Process the conversation, saving intermediate states
-        responses = []
+            # Process the conversation, saving intermediate states
+            responses = []
+            print("State:",state)
+            # Run the workflow, but break if a stop condition is met
+            for output in wf.run(state):
+                workflow_active = True  # Indicate that the workflow ran
+                try:
+                    for message in output.get('messages', []):
+                        responses.append(message.content)
+                except:
+                    pass
 
-        # Run the workflow, but break if a stop condition is met
-        for output in wf.run(state):
-            workflow_active = True  # Indicate that the workflow ran
-            try:
-                for message in output.get('messages', []):
-                    responses.append(message.content)
-            except:
-                pass
-
-        # Save the updated state and return the responses
-        state_storage[thread_id] = state
-        return {"responses": responses}
+            # Save the updated state and return the responses
+            state_storage[thread_id] = state
+            return {"responses": responses}
+        except Exception as e :
+            print(e)
+            return {"responses":[]}

@@ -52,7 +52,7 @@ dummy_db = DummyDataBase(
 
 class GlobalState(TypedDict):
     messages : Annotated[BaseMessage, operator.add]
-    user_history : dict
+    user_history : list
     config : dict
 
     category_extracted : str = None

@@ -38,7 +38,7 @@ class Product(BaseModel):
         return products
  
     @classmethod
-    def create_json(cls, data: list['Product']):
+    async def create_json(cls, data: list['Product']):
         try:
             # Write the list of Product instances to the file
             with open('products.json', 'w') as file:
@@ -62,13 +62,13 @@ class HumanInput(BaseModel):
 
 @app.post("/process_input/")
 async def process_input(input_data: HumanInput):
-    response = Controller.chatbot_handler(input_data)
+    response =await Controller.chatbot_handler(input_data)
     return response
 
 
 @app.post("/create-json/")
 async def create_json(data: list[Product]):
-    return Product.create_json(data)
+    return await Product.create_json(data)
 
 
 if __name__ == "__main__":
