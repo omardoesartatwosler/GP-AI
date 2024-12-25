@@ -4,6 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME = "mariammohamed1112/ai-service" 
         MAKEFILE_PATH = "Makefile"
+        GROQ_API_KEY = 'api-key'
     }
 
     stages {
