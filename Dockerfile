@@ -13,5 +13,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Expose the port your application runs on
 EXPOSE 5000
 
-# Command to run the application
-CMD ["python", "main.py"]
+# Command to run the application with Uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000"]
