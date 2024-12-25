@@ -54,14 +54,14 @@ pipeline {
     post {
         always {
             echo 'Pipeline execution completed. Printing container logs...'
-            sh 'docker ps -a' 
+            sh 'docker ps -a'
+        }
         failure {
             echo 'Pipeline failed. Stopping containers...'
-            sh  "make down IMAGE_NAME=${IMAGE_NAME}"
+            sh "make down IMAGE_NAME=${IMAGE_NAME}"
         }
         success {
             echo 'Pipeline executed successfully!'
         }
     }
-}
 }
