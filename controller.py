@@ -37,7 +37,7 @@ class Controller:
 
             # Process the conversation, saving intermediate states
             responses = []
-            print("State:",state)
+            #print("State:",state)
             # Run the workflow, but break if a stop condition is met
             for output in wf.run(state):
                 workflow_active = True  # Indicate that the workflow ran

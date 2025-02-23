@@ -94,10 +94,11 @@ class MainWorkflow:
 
         ##workflow.add_edge('process_extract_category', 'data_retrival')
         workflow.add_edge('data_retrival', 'follow_up_question')
-        workflow.add_edge("follow_up_question", 'follow_up_question')
+        #workflow.add_edge("follow_up_question", 'follow_up_question')
         # where should we end? should we create a condition for this?
 
         workflow.add_conditional_edges('process_extract_category', self.is_category_extracted , {True : "data_retrival" , False : 'process_extract_category' , 'S': 'summarize_user_history'})
+        workflow.add_conditional_edges('follow_up_question',self.should_continue,{True : "process_extract_category" , False : 'follow_up_question'})
         graph = workflow.compile(
             checkpointer = self.checkpointer,
             interrupt_before = ['process_extract_category', 'follow_up_question']
@@ -176,7 +177,6 @@ class MainWorkflow:
         
         
     def is_category_extracted(self, state) -> bool:
-        print(state)
         if not state.get('category_extracted') or state.get('category_extracted') == 'None' or state.get('category_extracted') == 'null':
           return False
         elif 'recommend' in state.get('category_extracted'):
@@ -223,7 +223,6 @@ class MainWorkflow:
      # it will tell
     def suggestion_system(self, state):
         print('in suggestion')
-        print(state)
         data_required = dummy_db.retrieve_by_category(state['user_insights']['most_bought_category'])
         system_prompt = f"""
         
@@ -268,11 +267,27 @@ class MainWorkflow:
         And this is the products we are selling of this category : {data_required}
         Help the user with their questions about our products
         ONLY respond with MAX 3 sentences.
+        You must keep up with the user if he asks about anything of these products .
+
+        you should respond with word 'restart' if and only if the user asks for another category that is not this category : {state['category_extracted']} or asks for products that we are not selling of this category : {data_required}.
+
+        **Important Notes:**
+        - Never respond with word 'restart' unless the user asks for products that are not with category :{state['category_extracted']}.
+        - You must give the user full guidance and advice if he asks about these products : {data_required}.
         """
 
         messages = [SystemMessage(content = system_prompt)] + state['messages']
         output = self.llm.invoke(messages)
-        return {'messages' : [output]}
+        if 'restart' in [output] :
+            return {"category_extracted" : output['category']}
+        else :
+            return {'messages' : [output]}
+        
+    def should_continue(self, state) -> bool:
+        if 'restart' in state.get('category_extracted'):
+          return False
+        else :
+          return True  
     
     def run(self, state : dict):
         '''
