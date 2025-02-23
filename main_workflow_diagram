@@ -1,0 +1,19 @@
+digraph MainWorkflow {
+	rankdir=TB
+	START [label=START fillcolor=lightblue shape=ellipse style=filled]
+	greet_and_ask [label=greet_and_ask fillcolor=lightyellow shape=box style="rounded, filled"]
+	process_extract_category [label=process_extract_category fillcolor=lightyellow shape=box style="rounded, filled"]
+	summarize_user_history [label=summarize_user_history fillcolor=lightgreen shape=box style="rounded, filled"]
+	suggestion_system [label=suggestion_system fillcolor=lightpink shape=box style="rounded, filled"]
+	data_retrival [label=data_retrival fillcolor=lightcyan shape=box style="rounded, filled"]
+	follow_up_question [label=follow_up_question fillcolor=lightgray shape=box style="rounded, filled"]
+	START -> greet_and_ask
+	greet_and_ask -> process_extract_category
+	summarize_user_history -> suggestion_system
+	suggestion_system -> follow_up_question
+	data_retrival -> follow_up_question
+	follow_up_question -> follow_up_question
+	process_extract_category -> data_retrival [label=True]
+	process_extract_category -> process_extract_category [label=False]
+	process_extract_category -> summarize_user_history [label=S]
+}

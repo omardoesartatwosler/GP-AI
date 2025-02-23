@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Dict
@@ -22,7 +23,7 @@ class Product(BaseModel):
 
     def to_dict(self):
         return self.dict()
-
+'''''
     @classmethod
     def getProducts(cls, Category: str):
         try:
@@ -50,8 +51,12 @@ class Product(BaseModel):
     @classmethod
     def append_product(cls, data_piece : 'Product'):
         pass
+        
+@app.post("/create-json/")
+async def create_json(data: list[Product]):
+    return await Product.create_json(data)
 
-
+'''
 
 class HumanInput(BaseModel):
     user_id: int
@@ -65,13 +70,6 @@ async def process_input(input_data: HumanInput):
     response =await Controller.chatbot_handler(input_data)
     return response
 
-
-@app.post("/create-json/")
-async def create_json(data: list[Product]):
-    return await Product.create_json(data)
-
-
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
 
-    

@@ -54,7 +54,7 @@ class GlobalState(TypedDict):
     messages : Annotated[BaseMessage, operator.add]
     user_history : list
     config : dict
-
+    user_insights : list
     category_extracted : str = None
     done : bool
     meta_date : str
@@ -186,6 +186,7 @@ class MainWorkflow:
         
     
     def summarize_user_history(self, state):
+        print("in summarizing")
         if not state['user_history']:
             return {'user_insights' : 'None'}
         
@@ -215,12 +216,14 @@ class MainWorkflow:
             return {'user_insights' : output_json}
         except:
             return {'user_insights' : output}
+        
 
 
 # Taking into consideration the insights of the user history : {state['user_insights']}
      # it will tell
     def suggestion_system(self, state):
         print('in suggestion')
+        print(state)
         data_required = dummy_db.retrieve_by_category(state['user_insights']['most_bought_category'])
         system_prompt = f"""
         
