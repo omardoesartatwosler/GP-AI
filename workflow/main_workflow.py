@@ -9,8 +9,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.output_parsers import JsonOutputParser
 
 from pydantic import BaseModel
-
-
+import requests
 
 from dotenv import load_dotenv
 import os
@@ -22,33 +21,6 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
 CACHE_ID = []
-class DummyDataBase:
-    def __init__(self, categories : list[str] , products : list[dict]):
-        self.categories = categories
-        self.products = products
-
-    def retrieve_by_category(self, category):
-        products_of_category = []
-        for product in self.products:
-            if product['category'] == category:
-                products_of_category.append(product)
-                
-        return products_of_category
-
-dummy_db = DummyDataBase(
-    ['Electronics', 'Home Appliances'],
-    [{'name': 'Smartphone', 'category': 'Electronics', 'price': 699},
-                {'name': 'Laptop', 'category': 'Electronics', 'price': 1200},
-                {'name': 'Headphones', 'category': 'Electronics', 'price': 199},
-                {'name': 'Smartwatch', 'category': 'Electronics', 'price': 249},
-                {'name': 'Gaming Console', 'category': 'Electronics', 'price': 499},
-                {'name': 'Vacuum Cleaner', 'category': 'Home Appliances', 'price': 150},
-                {'name': 'Air Fryer', 'category': 'Home Appliances', 'price': 120},
-                {'name': 'Microwave Oven', 'category': 'Home Appliances', 'price': 200},
-                {'name': 'Dishwasher', 'category': 'Home Appliances', 'price': 600},
-                {'name': 'Refrigerator', 'category': 'Home Appliances', 'price': 900}]
-    )
-
 
 class GlobalState(TypedDict):
     messages : Annotated[BaseMessage, operator.add]
@@ -63,7 +35,7 @@ class GlobalState(TypedDict):
 
 class MainWorkflow:
     llm = ChatGroq(
-    model="mixtral-8x7b-32768",
+    model="llama-3.3-70b-versatile",
     temperature=0.0,
     max_retries=2,
     api_key=API_KEY,
@@ -96,7 +68,7 @@ class MainWorkflow:
         workflow.add_edge('data_retrival', 'follow_up_question')
         #workflow.add_edge("follow_up_question", 'follow_up_question')
         # where should we end? should we create a condition for this?
-
+        
         workflow.add_conditional_edges('process_extract_category', self.is_category_extracted , {True : "data_retrival" , False : 'process_extract_category' , 'S': 'summarize_user_history'})
         workflow.add_conditional_edges('follow_up_question',self.should_continue,{True : "process_extract_category" , False : 'follow_up_question'})
         graph = workflow.compile(
@@ -111,12 +83,50 @@ class MainWorkflow:
         Hello to our shop, are you looking for personalized recommendations or a specific Category?
         """
         return {'messages' : [AIMessage(content = message)]}
+    @staticmethod
+    def get_all_categories():
+        url = "http://localhost:3000/product/get/categories"
+        try:
+            response = requests.get(url)
+            response.raise_for_status()  # Check for errors
+            data = response.json()  # Parse JSON response
+
+            # Extract categories if they exist in the response
+            if "categories" in data:
+                return data["categories"]
+            else:
+                print("No categories found in the response.")
+                return None
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching data: {e}")
+            return None
+    @staticmethod   
+    def get_products_by_category(category):
+        url = f"http://localhost:3000/product/?category={category}"  # Pass category in query params
+
+        try:
+            response = requests.get(url)
+            response.raise_for_status()  # Check for HTTP errors
+            data = response.json()  # Parse JSON response
+
+            # Extract products if they exist
+            if "products" in data:
+                return data["products"]
+            else:
+                print("No products found for this category.")
+                return None
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching data: {e}")
+            return None
+
+
     
     def process_extract_category(self, state):
         print('in processing')
         user_message = state['messages'][-1]
+        categories = MainWorkflow.get_all_categories()
         system_prompt = f"""
-    You are a smart sales assistant working for a shop. We ONLY offer the following categories: {dummy_db.categories}. 
+    You are a smart sales assistant working for a shop. We ONLY offer the following categories: {categories}. 
     Your task is to determine what the user is looking for based on their input.
     
     If the user asks for recommendations please return that json:
@@ -223,15 +233,25 @@ class MainWorkflow:
      # it will tell
     def suggestion_system(self, state):
         print('in suggestion')
-        data_required = dummy_db.retrieve_by_category(state['user_insights']['most_bought_category'])
-        system_prompt = f"""
-        
-        you are a smart sales person working for a shop.
-        Taking into consideration the insights of the user history : {state['user_insights']}
 
-        And this is the products we are selling of this category : {data_required}
-        Tell the user about our products in a nice way, it should only be MAX 3 sentences 
-        """
+        if state['user_insights'] == 'None' or not state['user_insights'] or state['user_insights'] == 'null':
+            categories = MainWorkflow.get_all_categories()
+            system_prompt = f"""
+            You are a smart salesperson working for a shop.
+            It seems the user has not made any purchases yet, so we don't have personalized suggestions.
+        
+            However, we have a variety of categories available: {categories}.
+            Kindly ask the user if they are interested in any of them
+            """
+        else:
+            data_required =  self.get_products_by_category(state['user_insights']['most_bought_category'])
+            system_prompt = fsystem_prompt = f"""
+            You are a smart sales person working for a shop.
+            Taking into consideration the insights of the user history : {state['user_insights']}
+
+            And this is the products we are selling of this category : {data_required}
+            Tell the user about our products in a nice way, it should only be MAX 3 sentences 
+            """
 
         messages = [SystemMessage(content = system_prompt)] + state['messages']
         output = self.llm.invoke(messages)
@@ -241,7 +261,7 @@ class MainWorkflow:
     # it will tell
     def data_retrival(self, state):
         print('in retrieval')
-        data_required = dummy_db.retrieve_by_category(state['category_extracted'])
+        data_required = MainWorkflow.get_products_by_category(state['category_extracted'])
         system_prompt = f"""
         
         you are a smart sales person working for a shop.
@@ -258,22 +278,36 @@ class MainWorkflow:
     # wait for user invoke
     def follow_up_question(self, state):
         print('in follow up')
-        data_required = dummy_db.retrieve_by_category(state['category_extracted'])
-        system_prompt = f"""
-        WRITE HERE
-        you are a smart sales person working for a shop.
-        The user asked some questions about this category : {state['category_extracted']}.
+        if state['category_extracted'] != "recommend":
+            data_required = MainWorkflow.get_products_by_category(state['category_extracted'])
+            system_prompt = f"""
+            WRITE HERE
+            you are a smart sales person working for a shop.
+            The user asked some questions about this category : {state['category_extracted']}.
 
-        And this is the products we are selling of this category : {data_required}
-        Help the user with their questions about our products
-        ONLY respond with MAX 3 sentences.
-        You must keep up with the user if he asks about anything of these products .
+            And this is the products we are selling of this category : {data_required}
+            Help the user with their questions about our products
+            ONLY respond with MAX 3 sentences.
+            You must keep up with the user if he asks about anything of these products .
 
-        you should respond with word 'restart' if and only if the user asks for another category that is not this category : {state['category_extracted']} or asks for products that we are not selling of this category : {data_required}.
+            you should respond with word 'restart' if and only if the user asks for another category that is not this category : {state['category_extracted']} or asks for products that we are not selling of this category : {data_required}.
 
-        **Important Notes:**
-        - Never respond with word 'restart' unless the user asks for products that are not with category :{state['category_extracted']}.
-        - You must give the user full guidance and advice if he asks about these products : {data_required}.
+            *Important Notes:*
+            - Never respond with word 'restart' unless the user asks for products that are not with category :{state['category_extracted']}.
+            - You must give the user full guidance and advice if he asks about these products : {data_required}.
+            """
+
+        else:
+            system_prompt = f"""
+        You are a helpful shopping assistant. The user is asking about different product categories in the shop.  
+        Your goal is to continue the conversation smoothly, guiding the user through available categories.  
+
+        *Instructions:*  
+        - If the user inquires about a category, provide relevant details or ask clarifying questions.  
+        - If the user asks for recommendations, suggest relevant products based on previous queries.  
+        - Keep responses short (max 3 sentences).  
+
+        Stay engaged with the user and assist them in navigating available product categories.
         """
 
         messages = [SystemMessage(content = system_prompt)] + state['messages']

@@ -31,6 +31,8 @@ class Controller:
 
             if input_data.user_history:
                 state['user_history'] = input_data.user_history
+            else:
+                state['user_history'] = []
             
             # Initialize configuration
             state['config'] = {'configurable': {'thread_id': thread_id}}
@@ -51,5 +53,5 @@ class Controller:
             state_storage[thread_id] = state
             return {"responses": responses}
         except Exception as e :
-            print(e)
+            print("why")
             return {"responses":[]}
