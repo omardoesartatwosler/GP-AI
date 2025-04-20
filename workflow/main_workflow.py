@@ -85,7 +85,7 @@ class MainWorkflow:
         return {'messages' : [AIMessage(content = message)]}
     @staticmethod
     def get_all_categories():
-        url = "http://localhost:3000/product/get/categories"
+        url = os.getenv("CATEGORIES_URL")
         try:
             response = requests.get(url)
             response.raise_for_status()  # Check for errors
@@ -102,8 +102,9 @@ class MainWorkflow:
             return None
     @staticmethod   
     def get_products_by_category(category):
-        url = f"http://localhost:3000/product/?category={category}"  # Pass category in query params
-
+        base_url = os.getenv("PRODUCTS_BY_CATEGORY_URL")
+        url = f"{base_url}/?category={category}"
+        
         try:
             response = requests.get(url)
             response.raise_for_status()  # Check for HTTP errors
