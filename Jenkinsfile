@@ -48,7 +48,7 @@ pipeline {
                 echo ' Deploying AI service to EC2 instance...'
                 sshagent(['ec2-key-jenkins']) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} << EOF
+                        ssh -tt -o StrictHostKeyChecking=no ${REMOTE_HOST} << EOF
                             set -e
                             echo " Stopping and removing old container..."
                             docker stop ${CONTAINER_NAME} || true
