@@ -46,13 +46,9 @@ pipeline {
         stage('Deploy on EC2') {
             steps {
                 echo ' Deploying AI service to EC2 instance...'
-                withCredentials([sshUserPrivateKey(
-                    credentialsId: 'ec2-key-jenkins',
-                    keyFileVariable: 'SSH_KEY',
-                    usernameVariable: 'SSH_USER'
-                )]) {
+                sshagent(['ec2-key-jenkins']) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no -i $SSH_KEY $REMOTE_HOST << EOF
+                        ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} << EOF
                             set -e
                             echo " Stopping and removing old container..."
                             docker stop ${CONTAINER_NAME} || true
@@ -68,7 +64,7 @@ pipeline {
                                 -p 8000:8000 \\
                                 ${IMAGE_NAME}:${IMAGE_TAG}
 
-                            echo "Deployment complete. Active containers:"
+                            echo " Deployment complete. Active containers:"
                             docker ps -a
                         EOF
                     """
@@ -82,7 +78,7 @@ pipeline {
             echo ' Pipeline execution completed.'
         }
         failure {
-            echo 'Pipeline failed. Deployment to EC2 was not successful.'
+            echo ' Pipeline failed. Deployment to EC2 was not successful.'
         }
         success {
             echo ' Pipeline executed and deployed AI service successfully to EC2.'
