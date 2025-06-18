@@ -2,66 +2,90 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "mariammohamed1112/ai-service" 
-        MAKEFILE_PATH = "Makefile"
-        GROQ_API_KEY = 'api-key'
+        IMAGE_NAME      = "mariammohamed1112/ai-service"
+        IMAGE_TAG       = "latest"
+        REMOTE_HOST     = "ubuntu@54.161.76.143"        
+        REMOTE_DIR      = "/home/ubuntu/GP-AI"         
+        CONTAINER_NAME  = "ai-service-container"
+        GROQ_API_KEY    = "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"
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                echo 'Checking out source code...'
+                echo ' Checking out source code...'
                 checkout scm
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo 'Building Docker image using Makefile...'
+                echo ' Building Docker image using Makefile...'
                 sh "make build IMAGE_NAME=${IMAGE_NAME}"
-                sh 'docker images' // Verify the built image
+                sh 'docker images'
             }
         }
-
-        /* 
-        stage('Run Tests') {
-            steps {
-                echo 'Running Tests...'
-            }
-        }
-        */
 
         stage('Push Docker Image') {
             steps {
-                echo 'Pushing Docker image to Docker Hub...'
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                echo ' Pushing Docker image to Docker Hub...'
+                withCredentials([usernamePassword(
+                    credentialsId: 'docker-hub-credentials',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                    '''
                 }
-                sh "docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:latest" // Tag the image
-                sh "docker push ${IMAGE_NAME}:latest" // Push to Docker Hub
             }
         }
 
-        stage('Run Application') {
+        stage('Deploy on EC2') {
             steps {
-                echo 'Running the application container...'
-                sh "make down CONTAINER_NAME=ai-service-container"
-                sh "make up IMAGE_NAME=${IMAGE_NAME} GROQ_API_KEY=${GROQ_API_KEY} CONTAINER_NAME=ai-service-container"
+                echo ' Deploying AI service to EC2 instance...'
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'ec2-key-jenkins',
+                    keyFileVariable: 'SSH_KEY',
+                    usernameVariable: 'SSH_USER'
+                )]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i $SSH_KEY $REMOTE_HOST << EOF
+                            set -e
+                            echo " Stopping and removing old container..."
+                            docker stop ${CONTAINER_NAME} || true
+                            docker rm ${CONTAINER_NAME} || true
+
+                            echo " Pulling latest image..."
+                            docker pull ${IMAGE_NAME}:${IMAGE_TAG}
+
+                            echo " Running new container..."
+                            docker run -d --name ${CONTAINER_NAME} \\
+                                --restart always \\
+                                -e GROQ_API_KEY="${GROQ_API_KEY}" \\
+                                -p 8000:8000 \\
+                                ${IMAGE_NAME}:${IMAGE_TAG}
+
+                            echo "Deployment complete. Active containers:"
+                            docker ps -a
+                        EOF
+                    """
+                }
             }
         }
     }
 
     post {
         always {
-            echo 'Pipeline execution completed. Printing container logs...'
-            sh 'docker ps -a'
+            echo ' Pipeline execution completed.'
         }
         failure {
-            echo 'Pipeline failed. Stopping containers...'
-            sh "make down IMAGE_NAME=${IMAGE_NAME}"
+            echo 'Pipeline failed. Deployment to EC2 was not successful.'
         }
         success {
-            echo 'Pipeline executed successfully!'
+            echo ' Pipeline executed and deployed AI service successfully to EC2.'
         }
     }
 }
