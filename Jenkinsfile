@@ -4,8 +4,8 @@ pipeline {
     environment {
         IMAGE_NAME      = "mariammohamed1112/ai-service"
         IMAGE_TAG       = "latest"
-        REMOTE_HOST     = "ubuntu@54.161.76.143"        
-        REMOTE_DIR      = "/home/ubuntu/GP-AI"         
+        REMOTE_HOST     = "ec2-user@54.161.76.143"        
+        REMOTE_DIR      = "/home/ec2-user/GP-AI"         
         CONTAINER_NAME  = "ai-service-container"
         GROQ_API_KEY    = "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"
     }
