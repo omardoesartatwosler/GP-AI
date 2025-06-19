@@ -13,6 +13,7 @@ import requests
 
 from dotenv import load_dotenv
 import os
+import json
 
 # Load .env file
 load_dotenv()
@@ -35,7 +36,7 @@ class GlobalState(TypedDict):
 
 class MainWorkflow:
     llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
+    model="meta-llama/llama-4-scout-17b-16e-instruct",
     temperature=0.0,
     max_retries=2,
     api_key=API_KEY,
@@ -64,10 +65,7 @@ class MainWorkflow:
         workflow.add_edge('summarize_user_history', 'suggestion_system')
         workflow.add_edge('suggestion_system', 'follow_up_question')
 
-        ##workflow.add_edge('process_extract_category', 'data_retrival')
         workflow.add_edge('data_retrival', 'follow_up_question')
-        #workflow.add_edge("follow_up_question", 'follow_up_question')
-        # where should we end? should we create a condition for this?
         
         workflow.add_conditional_edges('process_extract_category', self.is_category_extracted , {True : "data_retrival" , False : 'process_extract_category' , 'S': 'summarize_user_history'})
         workflow.add_conditional_edges('follow_up_question',self.should_continue,{True : "process_extract_category" , False : 'follow_up_question'})
@@ -209,7 +207,10 @@ class MainWorkflow:
         most_bought_product :  <most bought product from the user_history>
         meta_data : <any other useful data>
 
+        If there are multiple categories with equal total quantity, choose the one that matches the category of the most bought product as the most_bought_category.
+        
         Return only a valid JSON with no extra characters
+
         """
 
         messages = [SystemMessage(content = system_prompt)]
@@ -246,7 +247,7 @@ class MainWorkflow:
             """
         else:
             data_required =  self.get_products_by_category(state['user_insights']['most_bought_category'])
-            system_prompt = fsystem_prompt = f"""
+            system_prompt =  f"""
             You are a smart sales person working for a shop.
             Taking into consideration the insights of the user history : {state['user_insights']}
 
@@ -282,47 +283,75 @@ class MainWorkflow:
         if state['category_extracted'] != "recommend":
             data_required = MainWorkflow.get_products_by_category(state['category_extracted'])
             system_prompt = f"""
-            WRITE HERE
-            you are a smart sales person working for a shop.
-            The user asked some questions about this category : {state['category_extracted']}.
+                    You are a smart and friendly sales assistant working for a shop.
 
-            And this is the products we are selling of this category : {data_required}
-            Help the user with their questions about our products
-            ONLY respond with MAX 3 sentences.
-            You must keep up with the user if he asks about anything of these products .
+                    The user is asking questions about the following product category: **{state['category_extracted']}**
 
-            you should respond with word 'restart' if and only if the user asks for another category that is not this category : {state['category_extracted']} or asks for products that we are not selling of this category : {data_required}.
+                    Here are the products we currently sell in this category:
+                    {data_required}
 
-            *Important Notes:*
-            - Never respond with word 'restart' unless the user asks for products that are not with category :{state['category_extracted']}.
-            - You must give the user full guidance and advice if he asks about these products : {data_required}.
-            """
+                    ---
 
+                    Your task:
+                    - Engage the user in a helpful, professional, and concise way (maximum 3 sentences).
+                    - Always try to answer their questions and provide helpful suggestions **as long as the question relates to the above category or listed products**.
+                    - Be proactive in assisting them with product comparisons, features, pricing, or recommendations **within this category**.
+
+                    ---
+    
+                    Special Rule:
+                    Please return that if (and only if) the user  Clearly asks about a **different product category** or  asks questions about **products that are not in the list above**:     
+                    category : 'restart' 
+                    message : <add a message here>
+                    Return only a valid JSON with no extra characters
+                    ---
+
+                    """
+            
         else:
+            data_required =  self.get_products_by_category(state['user_insights']['most_bought_category'])
             system_prompt = f"""
-        You are a helpful shopping assistant. The user is asking about different product categories in the shop.  
-        Your goal is to continue the conversation smoothly, guiding the user through available categories.  
+                    You are a smart and friendly sales assistant working for a shop.
 
-        *Instructions:*  
-        - If the user inquires about a category, provide relevant details or ask clarifying questions.  
-        - If the user asks for recommendations, suggest relevant products based on previous queries.  
-        - Keep responses short (max 3 sentences).  
+                    The user is asking questions about the following product category: **{state['user_insights']['most_bought_category']}**
 
-        Stay engaged with the user and assist them in navigating available product categories.
-        """
+                    Here are the products we currently sell in this category:
+                    {data_required}
+
+                    ---
+
+                    Your task:
+                    - Engage the user in a helpful, professional, and concise way (maximum 3 sentences).
+                    - Always try to answer their questions and provide helpful suggestions **as long as the question relates to the above category or listed products**.
+                    - Be proactive in assisting them with product comparisons, features, pricing, or recommendations **within this category**.
+
+                    ---
+    
+                    Special Rule:
+                    Please return that if (and only if) the user  Clearly asks about a **different product category** or  asks questions about **products that are not in the list above**:     
+                    category : 'restart' 
+                    message : <add a message here>
+                    Return only a valid JSON with no extra characters
+                    ---
+
+                    """
 
         messages = [SystemMessage(content = system_prompt)] + state['messages']
         output = self.llm.invoke(messages)
-        if 'restart' in [output] :
-            return {"category_extracted" : output['category']}
+        content = output.content.strip()
+        if content.startswith("{"):
+            parsed_output = json.loads(content)
+            if parsed_output.get('category')== 'restart' :
+                message = f""" Our store offers a wide range of product categories. Could you please clarify which category you're interested in so I can assist you more effectively?"""
+                return {"category_extracted" : "restart" , 'messages' : [AIMessage(content = message)]}
         else :
             return {'messages' : [output]}
         
     def should_continue(self, state) -> bool:
         if 'restart' in state.get('category_extracted'):
-          return False
+          return True
         else :
-          return True  
+          return False   
     
     def run(self, state : dict):
         '''

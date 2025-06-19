@@ -53,5 +53,5 @@ class Controller:
             state_storage[thread_id] = state
             return {"responses": responses}
         except Exception as e :
-            print("why")
+            print(e)
             return {"responses":[]}
