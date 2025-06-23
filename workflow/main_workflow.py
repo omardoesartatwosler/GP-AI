@@ -303,6 +303,7 @@ class MainWorkflow:
                     Please return that if (and only if) the user  Clearly asks about a **different product category** or  asks questions about **products that are not in the list above**:     
                     category : 'restart' 
                     message : <add a message here>
+                    
                     Return only a valid JSON with no extra characters
                     ---
 
@@ -331,6 +332,7 @@ class MainWorkflow:
                     Please return that if (and only if) the user  Clearly asks about a **different product category** or  asks questions about **products that are not in the list above**:     
                     category : 'restart' 
                     message : <add a message here>
+                    
                     Return only a valid JSON with no extra characters
                     ---
 
